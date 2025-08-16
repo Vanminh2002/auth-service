@@ -9,6 +9,13 @@
 //import org.springframework.security.oauth2.jwt.JwtException;
 //import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 //
+//import java.nio.file.Files;
+//import java.nio.file.Path;
+//import java.security.KeyFactory;
+//import java.security.interfaces.RSAPublicKey;
+//import java.security.spec.X509EncodedKeySpec;
+//import java.util.Base64;
+//
 //public class CustomJwtDecoder implements JwtDecoder {
 //
 //
@@ -24,8 +31,10 @@
 //
 //    @Override
 //    public Jwt decode(String token) throws JwtException {
-//       try  {
-//           var response = authService.
-//       }
+//        String keyStr = Files.readString(Path.of("keys/public.pem"));
+//        RSAPublicKey publicKey = (RSAPublicKey) KeyFactory.getInstance("RSA")
+//                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder()
+//                        .decode(keyStr.replaceAll("-----\\w+ PUBLIC KEY-----", "").replaceAll("\\s", ""))));
+//        return NimbusJwtDecoder.withPublicKey(publicKey).build();
 //    }
 //}

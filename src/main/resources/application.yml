@@ -1,7 +1,18 @@
 server:
+  error:
+    include-message: always       # Trả message lỗi cho client
+    include-exception: false      # Không trả tên exception
+    include-stacktrace: never     # ⛔️ Không trả trace stack
+    whitelabel:
+      enabled: false              # Tắt giao diện lỗi mặc định
   port: 8000
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-service:8080/.well-known/jwks.json
   application:
     name: auth-service
   datasource:

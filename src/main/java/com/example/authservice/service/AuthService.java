@@ -16,6 +16,7 @@ import jakarta.annotation.Resource;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.example.dto.ApiResponse;
+
 import org.example.exception.AppException;
 import org.example.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,20 +36,14 @@ import java.util.*;
 @Service
 public class AuthService {
 
-    @NonFinal
-    @Value("${jwt.signerKey}")
-    protected String SECRET_KEY;
-
-
     @Resource
     private UserClient userClient;
+
+    @Resource
+    private JwtService jwtService;
     @Resource
     PasswordEncoder passwordEncoder;
 
-//    @Resource
-//    private RoleClient roleClient;
-//    @Resource
-//    private PermissionClient permissionClient;
 
     public AuthResponse login(AuthRequest request) {
         List<UserDto> user = userClient.getAllUsers().getData();
@@ -66,7 +61,7 @@ public class AuthService {
         if (!authenticated) {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
-        var token = generalToken(existUser);
+        var token = jwtService.generateToken(existUser);
 
         return AuthResponse.builder()
                 .token(token)
@@ -75,50 +70,4 @@ public class AuthService {
 
     }
 
-
-    private String generalToken(UserDto user) {
-        JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
-
-        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
-                .subject(user.getUsername())
-                .issuer(user.getUsername())
-                .issueTime(new Date())
-                .expirationTime(new Date(Instant.now()
-                        .plus(15, ChronoUnit.MINUTES)
-                        .toEpochMilli()))
-                .jwtID(UUID.randomUUID().toString())
-                .claim("scope", buildScope(user))
-                .build();
-
-        Payload payload = new Payload(jwtClaimsSet.toJSONObject());
-
-        JWSObject jwsObject = new JWSObject(header, payload);
-
-        try {
-            jwsObject.sign(new MACSigner(SECRET_KEY.getBytes()));
-            return jwsObject.serialize();
-        } catch (KeyLengthException e) {
-            throw new RuntimeException(e);
-        } catch (JOSEException e) {
-            log.error("Can not create token", e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    private String buildScope(UserDto user) {
-        StringJoiner scopeJoiner = new StringJoiner(" ");
-        if (!CollectionUtils.isEmpty(user.getRoleId())) {
-            ApiResponse<List<RoleDto>> role = userClient.getRoleById(user.getRoleId());
-            List<RoleDto> roles = role.getData();
-            if (roles != null) {
-                roles.stream()
-                        .filter(r -> r.getPermissions() != null)
-                        .flatMap(r -> r.getPermissions().stream()
-                                .map(PermissionDto::getName))
-                        .filter(Objects::nonNull)
-                        .forEach(scopeJoiner::add);
-            }
-        }
-        return scopeJoiner.toString();
-    }
 }

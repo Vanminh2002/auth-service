@@ -22,27 +22,42 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @NonFinal
-    @Value("${jwt.signerKey}")
-    protected String SIGNER_KEY;
+
+    private final String[] PUBLIC_ENDPOINT = {
+            "/auth/**",
+            "/.well-known/jwks.json"
+    };
+
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth ->
-                                auth.requestMatchers("/**").permitAll()
+                                auth.requestMatchers(PUBLIC_ENDPOINT).permitAll()
 //                                .requestMatchers(ADMIN_ENDPOINT).hasAnyAuthority("ROLE_ADMIN")
                                         .anyRequest().authenticated()
                 );
         http.oauth2ResourceServer(oauth2 ->
                 oauth2.jwt(jwt ->
-                        jwt.decoder(jwtDecoder())
-                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
+                        {
+                            try {
+                                jwt.decoder(jwtDecoder())
+                                        .jwtAuthenticationConverter(jwtAuthenticationConverter());
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
                 )
 
 
@@ -53,12 +68,13 @@ public class SecurityConfig {
 
 
     @Bean
-    JwtDecoder jwtDecoder() {
-        SecretKeySpec key = new SecretKeySpec(SIGNER_KEY.getBytes(), "HS512");
-        return NimbusJwtDecoder
-                .withSecretKey(key)
-                .macAlgorithm(MacAlgorithm.HS512)
-                .build();
+    public JwtDecoder jwtDecoder() throws Exception {
+//        String keyStr = Files.readString(Path.of("keys/public.pem"));
+//        RSAPublicKey publicKey = (RSAPublicKey) KeyFactory.getInstance("RSA")
+//                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder()
+//                        .decode(keyStr.replaceAll("-----\\w+ PUBLIC KEY-----", "").replaceAll("\\s", ""))));
+//        return NimbusJwtDecoder.withPublicKey(publicKey).build();
+        return NimbusJwtDecoder.withJwkSetUri("http://localhost:8000/.well-known/jwks.json").build();
     }
 
 
@@ -73,8 +89,4 @@ public class SecurityConfig {
     }
 
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 }
